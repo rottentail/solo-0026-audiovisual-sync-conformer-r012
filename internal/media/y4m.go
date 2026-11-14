@@ -133,8 +133,14 @@ func parseY4MHeader(line string) (parsedHeader, error) {
 	if header.width > domain.MaxVideoWidth || header.height > domain.MaxVideoHeight {
 		return parsedHeader{}, fmt.Errorf("Y4M dimensions exceed the limit")
 	}
-	if header.fpsNum <= 0 || header.fpsNum > 120 || header.fpsDen > 1001 {
+	if header.fpsNum <= 0 || header.fpsNum > 120000 || header.fpsDen > 1001 {
 		return parsedHeader{}, fmt.Errorf("Y4M frame rate is outside the accepted range")
+	}
+	// Fractional rates encode the effective frame rate as a ratio (e.g.
+	// 30000:1001 for 29.97 fps); validate the effective rate, not the raw
+	// numerator, so NTSC-style rates are accepted.
+	if header.fpsNum/header.fpsDen > 120 {
+		return parsedHeader{}, fmt.Errorf("Y4M effective frame rate exceeds 120 fps")
 	}
 	if header.chroma != "C420jpeg" && header.chroma != "C420mpeg2" && header.chroma != "C420" {
 		return parsedHeader{}, fmt.Errorf("only planar C420 Y4M is accepted")
@@ -148,6 +154,9 @@ func parseY4MHeader(line string) (parsedHeader, error) {
 func EncodeY4M(info domain.VideoInfo, frames [][]byte) ([]byte, error) {
 	if info.Width <= 0 || info.Height <= 0 || info.FPSNum <= 0 || info.FPSDen <= 0 {
 		return nil, fmt.Errorf("invalid Y4M output geometry")
+	}
+	if info.Width%2 != 0 || info.Height%2 != 0 {
+		return nil, fmt.Errorf("C420 dimensions must be even")
 	}
 	chroma := info.Chroma
 	if chroma == "" {

@@ -159,6 +159,15 @@ func (s *Service) failAnalysis(
 	record.State = domain.AnalysisStateFailed
 	record.ErrorCode = code
 	record.ErrorMessage = message
+	// A failed analysis never exposes a usable event pair, regardless of
+	// whether the failure happened before or after measurement.
+	record.AudioEventMS = nil
+	record.VideoEventMS = nil
+	record.OffsetMS = nil
+	record.Confidence = 0
+	record.DriftPPM = 0
+	record.AudioProminence = 0
+	record.VideoProminence = 0
 	record.UpdatedAt = time.Now().UTC()
 	if err := s.repository.UpdateAnalysis(record); err != nil {
 		return domain.AnalysisResult{}, err

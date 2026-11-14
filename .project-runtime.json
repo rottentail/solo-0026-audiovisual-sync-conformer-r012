@@ -5,7 +5,17 @@
     ".go"
   ],
   "build_command": "go build ./...",
-  "testing": "deferred",
+  "test_command": "go test ./...",
+  "race_test_command": "go test -race ./...",
+  "testing": "automated",
+  "test_packages": [
+    "internal/media",
+    "internal/domain",
+    "internal/storage",
+    "internal/service",
+    "test/integration",
+    "test/restart"
+  ],
   "workflow_checks": [
     {
       "workflow_id": "admit-take",

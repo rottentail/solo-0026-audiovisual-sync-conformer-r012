@@ -176,22 +176,41 @@ JSON errors use a stable envelope:
 
 ## Validation plan
 
-The initial baseline intentionally defers automated tests. A later task stage
-will add unit, integration, and HTTP verification for the production
-interfaces below:
+Automated verification now covers the production interfaces. The suite is
+layered so each concern is checked at the narrowest level that can observe it:
 
-- WAV chunk bounds and Y4M frame-count agreement with declared geometry;
-- onset and flash detection on calibration media with known event times;
-- positive and negative audio corrections around the measured offset;
-- terminal-state behavior for invalid and boundary requests;
-- atomic visibility of take directories and conform bundles.
+- WAV chunk bounds and Y4M frame-count agreement with declared geometry
+  (`internal/media/codec_test.go`);
+- onset and flash detection on calibration media with known event times,
+  including integer and fractional (`30000/1001`, `24000/1001`,
+  `60000/1001`) frame rates (`internal/media/signal_test.go`);
+- positive and negative audio corrections and sample-accurate alignment
+  across sample rates and channel layouts (`internal/media/align_test.go`);
+- terminal-state behavior for invalid and boundary requests, including state
+  transition rejection and identifier rules (`internal/domain`,
+  `internal/service`);
+- atomic visibility of take directories and conform bundles, idempotency, and
+  persisted lifecycle transitions (`internal/storage`);
+- a known-offset HTTP matrix across sample rates, fractional frame rates,
+  stereo/mono, and both offset signs, with each rendered bundle independently
+  re-decoded and cross-checked against its analysis, job, and receipt records
+  (`test/integration`, `test/synctest`);
+- record-vs-export mutation tests that tamper with the exported WAV shift,
+  picture frame order, receipt, and record digests to prove an inconsistency
+  between an analysis record and the actual exported audio/video is detected
+  (`test/integration/mutation_test.go`);
+- concurrency tests for admission races and serialized analysis/conform
+  creation (`test/integration/concurrency_test.go`);
+- a real `syncservice` subprocess kill/restart that re-reads completed,
+  failed, and interrupted non-terminal tasks from the same data root
+  (`test/restart`).
 
-Until that stage, three bounded production workflow checks exercise the real
-HTTP routes, storage layout, media transforms, and persisted terminal records.
-They are not a substitute for the later test suite.
+Run the suite with `go test ./...`, or `go test -race ./...` for the
+race-checked CI command. The independent bundle verifier
+(`test/synctest.VerifyBundle`) measures the actual PCM shift and picture frame
+order from the exported bytes instead of trusting persisted digests, so it
+fails when a record claims a correction the media does not contain.
 
-## Deferred testing boundary
-
-Automated tests are intentionally omitted from this baseline. The later task
-stage owns creation of the test harness, fixtures, race checks, and test
-command. This repository ships only executable production workflow checks.
+The three bounded production workflow checks remain as a fast smoke test of the
+real HTTP routes, storage layout, media transforms, and persisted terminal
+records. They complement but do not replace the automated suite.
